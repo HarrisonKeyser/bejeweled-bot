@@ -8,7 +8,9 @@ It doesn't modify the game or the console. The bot watches the TV picture throug
 
 ## Why
 
-Beating Endless mode takes about 200 hours. The Xbox 360 version's save system is unreliable: I lost my progress once around 150 hours in, and again around 50 hours into the second attempt. So I gave the next 200 hours to a machine.
+Beating Endless mode takes about 60 million points, or 200 to 300 hours for most people. The Xbox 360 version's save system makes that a gamble: loading your profile deletes your save, and it isn't written back until you quit through the main menu. A crash, a power cut or a tripped-over cord mid-session wipes everything. I lost my progress once around 150 hours in, and again around 50 hours into the second attempt.
+
+So the third attempt went to a robot, without modding the console or the game. To the Xbox, it's indistinguishable from a person holding a controller.
 
 ## How it works
 
@@ -23,14 +25,15 @@ flowchart LR
         S --> K[Controller<br/>track cursor, plan path]
     end
 
-    K -- Wi-Fi, TCP --> P[Raspberry Pi Zero 2W<br/>poses as a USB keyboard]
-    P -- USB keys --> Z[Cronus Zen<br/>keys to controller]
+    K -- Wi-Fi, TCP --> P[Raspberry Pi Zero 2W<br/>Python-to-keyboard translator]
+    P -- USB keys --> Z[Cronus Zen<br/>poses as an Xbox controller]
     Z -- D-pad + A --> X
 ```
 
 1. **See.** The bot reads frames from the capture card, finds the board, cuts it into 64 cells, and classifies each cell by counting pixels inside hand-tuned HSV color ranges (`vision.py`).
 2. **Think.** It tries every legal swap on a copy of the board and simulates the result, including chain reactions, power-gem explosions and gravity, then picks the highest-scoring move (`solver.py`).
 3. **Act.** The laptop sends commands like `UP` or `SWAP_LEFT` over Wi-Fi to the Pi. The Pi types them as arrow keys and Space, and the Cronus Zen turns those into D-pad and A-button presses (`controller.py`, `pi/listener.py`).
+   The Pi is needed because the Cronus Zen only accepts moves preprogrammed onto it or a plugged-in keyboard. It can't take commands from a Python program directly. The Zen itself plugs into the Xbox as a standard controller, which is how an unmodified console accepts the inputs.
 4. **Wait.** It watches until the board changes (the swap registered) and then until it stops changing (the cascade finished), and goes again (`bot.py`).
 
 ## Problems worth solving
@@ -41,15 +44,15 @@ flowchart LR
 
 **Detecting a lost cursor.** If the cursor drifts (for example when a press gets dropped), the swaps miss and the board doesn't change, so the bot keeps choosing the same move. Three identical attempts in a row trigger a cursor reset.
 
-**Three seconds of video delay.** The capture card, from around 2012, lags about 3 seconds behind the console, so fixed timers either wasted time or acted on stale frames. The loop is closed instead: act, wait until the board changes, then wait until it reads the same twice in a row with no empty cells.
+**Knowing when to move.** The first version screenshotted the board on a looping timer and looked for the best move after each interval. That was slow (every move waited out a timer long enough for the longest cascade) and error-prone (a short timer caught the board mid-cascade), and the old capture card added about 3 seconds of delay on top. The loop is closed instead: act, wait until the board changes, then wait until it reads the same twice in a row with no empty cells.
 
-**Power gems that doubt themselves.** Power gems pulse, which drags their color confidence down. At one point the only legal move on the board was a low-confidence power gem, so the bot ignored it and stalled. Their center stays a bright, saturated version of their color, so a strong center now restores full confidence.
+**Power gems that doubt themselves.** The bot originally ignored gems it wasn't confident about, as a safety net against misreads. Power gems pulse, which drags their color confidence down. That held until a board where the only legal move involved a low-confidence power gem, and the bot froze. The fix was new parameters and checks in the vision: a power gem's center stays a bright, saturated version of its color, so a strong center now restores full confidence.
 
 **Button timing.** Holding a direction for 0.3 s sometimes moved the cursor two cells; 0.2 s was reliable.
 
 **Finding the board on any setup.** Every capture card and resolution puts the board somewhere different. The bot tries every plausible 8x8 grid, keeps the one whose cells look most like gems (penalizing areas where every neighbor is the same color, like a yellow sky), then fits the grid to the 64 gems' centers. `tests/test_real_frames.py` runs this end to end on frames from the original run, including a half-resolution frame and a level without a board frame, and checks every cell.
 
-The result was about 250,000 points per hour, a little slower than a strong human. Nearly all of the gap comes from the capture card's delay.
+The result was about 300,000 points per hour, which finished all 280 levels in roughly 10 days of play, about what a person would take.
 
 ## What you need
 
