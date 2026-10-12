@@ -12,6 +12,16 @@ Beating Endless mode takes about 60 million points, or 200 to 300 hours for most
 
 So the third attempt went to a robot, without modding the console or the game. To the Xbox, it's indistinguishable from a person holding a controller.
 
+## Breaking it down
+
+The project splits into three smaller ones, each manageable on its own:
+
+1. **The hands:** get inputs from Python onto the Xbox. Run a line of code and watch the in-game cursor go down, right, up, left.
+2. **The eyes:** get the TV picture to the computer and read the board accurately.
+3. **The brain:** given a board, find every legal move and play the best one.
+
+Once each part worked, putting them together didn't take much more.
+
 ## How it works
 
 ```mermaid
@@ -52,7 +62,7 @@ flowchart LR
 
 **Finding the board on any setup.** Every capture card and resolution puts the board somewhere different. The bot tries every plausible 8x8 grid, keeps the one whose cells look most like gems (penalizing areas where every neighbor is the same color, like a yellow sky), then fits the grid to the 64 gems' centers. `tests/test_real_frames.py` runs this end to end on frames from the original run, including a half-resolution frame and a level without a board frame, and checks every cell.
 
-The result was about 300,000 points per hour, which finished all 280 levels in roughly 10 days of play, about what a person would take.
+The result was about 300,000 points per hour, which finished all 280 levels in roughly 8 days of play, about what a person would take.
 
 ## What you need
 
