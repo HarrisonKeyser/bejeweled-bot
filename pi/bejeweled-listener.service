@@ -1,0 +1,14 @@
+[Unit]
+Description=Bejeweled Bot listener (network commands to keyboard presses)
+After=network-online.target usb-keyboard-gadget.service
+Wants=network-online.target
+Requires=usb-keyboard-gadget.service
+
+[Service]
+ExecStart=/usr/bin/python3 /usr/local/bin/bejeweled-listener.py
+User=__USER__
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

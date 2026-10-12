@@ -1,0 +1,11 @@
+[Unit]
+Description=USB keyboard gadget (creates /dev/hidg0)
+After=sys-kernel-config.mount systemd-modules-load.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/usb-keyboard-gadget.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

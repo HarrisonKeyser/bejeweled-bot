@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bejeweled-bot"
+version = "1.0.0"
+description = "Plays Bejeweled 2 on an Xbox 360 using a capture card, computer vision, and a Raspberry Pi posing as a keyboard."
+readme = "README.md"
+license = "MIT"
+authors = [{ name = "Harrison Keyser" }]
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.24",
+    "opencv-python>=4.8",
+    "mss>=9.0",
+    "keyboard>=0.13",
+    "pywin32>=306; sys_platform == 'win32'",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.5"]
+
+[project.scripts]
+bejeweled-bot = "bejeweled_bot.cli:main"
+
+[project.urls]
+Homepage = "https://harrisonkeyser.fun/bejeweled-bot"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 110
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]

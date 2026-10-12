@@ -1,0 +1,19 @@
+# Copy this file to config.toml and fill in your own values.
+
+[pi]
+# The Raspberry Pi's address on your network. Find it by running `hostname -I` on the Pi.
+host = "192.168.1.50"
+port = 65432
+
+[capture]
+# Part of the capture app's window title.
+window_title = "Game Capture HD"
+# Where the 8x8 board sits inside that window: [x, y, width, height] in pixels.
+# Run `bejeweled-bot calibrate` to line it up, then press P to print the values.
+grid = [694, 88, 864, 864]
+
+[timing]
+# Seconds to wait after each D-pad press, and before the swap.
+# The Pi already holds each button for 0.2 s, so these can stay tiny.
+input_delay = 0.01
+pre_swap_delay = 0.01
