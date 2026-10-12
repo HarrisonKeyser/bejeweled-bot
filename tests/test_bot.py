@@ -19,12 +19,21 @@ B Y R G B Y R G
 """
 
 
+class FakeSource:
+    def read(self):
+        return object()
+
+    def reset(self):
+        pass
+
+    def describe(self):
+        return "a fake source"
+
+
 def make_bot(screens):
     """A bot whose eyes show `screens` in order (repeating the last one)."""
     link = DryRunLink()
-    bot = Bot(
-        Config(), link, find_window=lambda _: (0, 0, 10, 10), capture=lambda _: None, sleep=lambda _: None
-    )
+    bot = Bot(Config(grid=(0, 0, 8, 8)), link, FakeSource(), sleep=lambda _: None)
     queue = list(screens)
     bot._look = lambda: queue.pop(0) if len(queue) > 1 else queue[0]
     return bot, link
@@ -73,3 +82,32 @@ def test_does_nothing_without_a_move():
     bot, link = make_bot([board_from(DEAD_BOARD)])
     bot.step()
     assert link.sent == []
+
+
+class FrameSource:
+    """A source that always shows one saved real frame."""
+
+    def __init__(self, image):
+        self.image = image
+
+    def read(self):
+        return self.image
+
+    def reset(self):
+        pass
+
+    def describe(self):
+        return "a saved frame"
+
+
+def test_finds_the_board_by_itself_before_the_first_move():
+    from pathlib import Path
+
+    import cv2
+
+    image = cv2.imread(str(Path(__file__).parent / "frames" / "framed_hypercube.webp"))
+    link = DryRunLink()
+    bot = Bot(Config(grid=None), link, FrameSource(image), sleep=lambda _: None)
+    board = bot._look()
+    assert bot.grid is not None
+    assert board[4][2].gem == "hypercube"

@@ -6,11 +6,22 @@ host = "192.168.1.50"
 port = 65432
 
 [capture]
-# Part of the capture app's window title.
+# "device": read the capture card directly, like a webcam. Works with most capture
+#           cards from the last several years, and has the least delay. Close the
+#           card's own app (and OBS) first: only one program can use the card at a time.
+# "window": screenshot a window that shows the game (the card's app, OBS, ...).
+source = "device"
+
+# For "device": which video device. Run `bejeweled-bot devices` to list them.
+device = 0
+resolution = [1920, 1080]
+
+# For "window": part of the window's title.
 window_title = "Game Capture HD"
-# Where the 8x8 board sits inside that window: [x, y, width, height] in pixels.
-# Run `bejeweled-bot calibrate` to line it up, then press P to print the values.
-grid = [694, 88, 864, 864]
+
+# Where the board is: "auto" finds it each time the bot starts (takes a few seconds).
+# Or paste the [x, y, width, height] that `bejeweled-bot calibrate` prints when you press P.
+grid = "auto"
 
 [timing]
 # Seconds to wait after each D-pad press, and before the swap.

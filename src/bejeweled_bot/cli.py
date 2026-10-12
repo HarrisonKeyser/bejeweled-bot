@@ -1,4 +1,4 @@
-"""Command line: `bejeweled-bot play`, `watch`, `calibrate`, `analyze`, `test-connection`."""
+"""Command line: `bejeweled-bot play`, `watch`, `calibrate`, `devices`, `analyze`, `test-connection`."""
 
 from __future__ import annotations
 
@@ -22,11 +22,13 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("-v", "--verbose", action="store_true", help="show debug messages")
     commands = parser.add_subparsers(dest="command", required=True)
 
-    play = commands.add_parser("play", help="play the game (F1 start/pause, F3 find window again, Esc quit)")
+    play = commands.add_parser("play", help="play the game (F1 start/pause, F3 reconnect, Esc quit)")
     play.add_argument("--dry-run", action="store_true", help="log button presses instead of sending them")
+    play.add_argument("--show", action="store_true", help="show what the bot sees in a window")
     watch = commands.add_parser("watch", help="show the best move without pressing anything")
     watch.add_argument("--no-overlay", action="store_true", help="text only, no overlay window")
-    commands.add_parser("calibrate", help="line up the grid and sample gem colors")
+    commands.add_parser("calibrate", help="find the board, check the readings, sample gem colors")
+    commands.add_parser("devices", help="list video devices (capture cards and webcams)")
     analyze = commands.add_parser("analyze", help="read a saved screenshot and print the best move")
     analyze.add_argument("image", type=Path)
     analyze.add_argument("--save-overlay", type=Path, metavar="PNG", help="also save an annotated copy")
@@ -42,7 +44,7 @@ def main(argv: list[str] | None = None) -> None:
     config = _config(args.config)
 
     if args.command == "play":
-        _play(config, args.dry_run)
+        _play(config, args.dry_run, args.show)
     elif args.command == "watch":
         from .watch import watch as run_watch
 
@@ -51,6 +53,8 @@ def main(argv: list[str] | None = None) -> None:
         from .calibrate import calibrate as run_calibrate
 
         run_calibrate(config)
+    elif args.command == "devices":
+        _devices()
     elif args.command == "analyze":
         _analyze(config, args.image, args.save_overlay)
     elif args.command == "test-connection":
@@ -63,22 +67,27 @@ def _config(path: Path | None) -> Config:
     return load_config(path)
 
 
-def _play(config: Config, dry_run: bool) -> None:
+def _play(config: Config, dry_run: bool, show: bool) -> None:
     import keyboard
 
     from .bot import Bot
+    from .capture import open_source
     from .controller import DryRunLink, PiLink
 
     link = DryRunLink() if dry_run else PiLink(config.pi_host, config.pi_port)
-    bot = Bot(config, link)
+    source = open_source(config)
+    bot = Bot(config, link, source, on_frame=_preview if show else None)
     keyboard.add_hotkey("f1", bot.toggle)
-    keyboard.add_hotkey("f3", bot.refind_window)
+    keyboard.add_hotkey("f3", bot.refresh_capture)
     keyboard.add_hotkey("esc", bot.stop)
 
     print("Bejeweled Bot")
     print("  F1   start / pause (the cursor resets to the corner on start)")
-    print("  F3   find the capture window again (if it moved)")
+    print("  F3   reconnect to the capture and find the board again")
     print("  Esc  quit")
+    print(
+        f"Reading {source.describe()}; sending moves to {'nowhere (dry run)' if dry_run else config.pi_host}."
+    )
     loop = threading.Thread(target=bot.run, daemon=True)
     loop.start()
     try:
@@ -86,7 +95,32 @@ def _play(config: Config, dry_run: bool) -> None:
             time.sleep(0.2)
     except KeyboardInterrupt:
         bot.stop()
+    loop.join(timeout=3)
+    source.close()
     print("Bye!")
+
+
+def _preview(image, board, grid) -> None:
+    """Show the bot's latest look (runs on the bot's thread, which owns the window)."""
+    import cv2
+
+    from .display import draw_overlay
+
+    cv2.imshow("Bejeweled Bot: playing", draw_overlay(image, board, grid))
+    cv2.waitKey(1)
+
+
+def _devices() -> None:
+    from .capture import list_devices
+
+    print("Checking video devices...")
+    found = list_devices()
+    if not found:
+        print("None found. Is the capture card plugged in, and is its app (or OBS) closed?")
+    for index, width, height in found:
+        print(f"  device = {index}   ({width}x{height})")
+    if found:
+        print("Webcams show up here too. Run `bejeweled-bot calibrate` to check you picked the right one.")
 
 
 def _analyze(config: Config, image_path: Path, overlay_path: Path | None) -> None:
@@ -99,8 +133,14 @@ def _analyze(config: Config, image_path: Path, overlay_path: Path | None) -> Non
     image = cv2.imread(str(image_path))
     if image is None:
         raise SystemExit(f"Couldn't open {image_path}")
-    # A single frame can't show flicker, so hypercubes may read as white here.
-    board = read_board(image, config.grid, HypercubeDetector())
+    grid = config.grid
+    if grid is None:
+        from .autogrid import find_grid
+
+        grid, lock = find_grid(image)
+        print(f"Found the board at grid = {list(grid)} ({lock:.0%} of cells look like gems)\n")
+    # A single frame can't show flicker, but most hypercubes still read correctly from one.
+    board = read_board(image, grid, HypercubeDetector())
     print(board_text(board))
     print()
     best = find_best_move(board)
@@ -109,7 +149,7 @@ def _analyze(config: Config, image_path: Path, overlay_path: Path | None) -> Non
         count = len(legal_moves(board))
         print(f"({count} scoring move{'s' if count != 1 else ''} on the board)")
     if overlay_path:
-        cv2.imwrite(str(overlay_path), draw_overlay(image, board, config.grid, best))
+        cv2.imwrite(str(overlay_path), draw_overlay(image, board, grid, best))
         print(f"Saved {overlay_path}")
 
 

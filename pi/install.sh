@@ -19,11 +19,20 @@ for module in dwc2 libcomposite; do
     grep -q "^$module\$" /etc/modules || echo "$module" >> /etc/modules
 done
 
-# 2. Install the scripts.
+# 2. Turn off services from an earlier, hand-made setup (they'd claim the same USB
+#    port and network port). Names from the original build; harmless if missing.
+for old in xbox_bot.service virtual_keyboard.service; do
+    if systemctl cat "$old" >/dev/null 2>&1; then
+        echo "Turning off the old $old"
+        systemctl disable --now "$old" || true
+    fi
+done
+
+# 3. Install the scripts.
 install -m 755 "$HERE/usb-keyboard-gadget.sh" /usr/local/bin/usb-keyboard-gadget.sh
 install -m 755 "$HERE/listener.py" /usr/local/bin/bejeweled-listener.py
 
-# 3. Start both at every boot.
+# 4. Start both at every boot.
 install -m 644 "$HERE/usb-keyboard-gadget.service" /etc/systemd/system/
 sed "s/__USER__/$RUN_AS/" "$HERE/bejeweled-listener.service" > /etc/systemd/system/bejeweled-listener.service
 systemctl daemon-reload
